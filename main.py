@@ -68,7 +68,7 @@ class TypyModal(Modal, title="Wyślij swoje typy"):
 
         channel = discord.utils.get(bot.get_all_channels(), name="typy-2025")
         if channel:
-            await channel.send(f"🏁 Otrzymano typy od <@{interaction.user.id}> na `{sesja_nazwa}`!")
+            await channel.send(f"🏎 Otrzymano typy od <@{interaction.user.id}> na `{sesja_nazwa}`!")
 
         await interaction.response.send_message(f"✅ Typy zapisane dla sesji `{sesja_nazwa}`.", ephemeral=True)
 
