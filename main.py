@@ -16,7 +16,7 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 TYPY_FILE = "typy.json"
 DYREKTYWY_FILE = "dyrektywy.json"
 
-wyslane_przypomnienia = {"48h": set(), "1h": set()}
+wyslane_przypomnienia = {"48h": set(), "1h": set(), "ujawnione": set()}
 
 def load_typy():
     if not os.path.exists(TYPY_FILE):
@@ -56,9 +56,6 @@ async def typy(interaction: discord.Interaction, sesja: str, typy: str):
     if sesja not in dyrektywy:
         await interaction.response.send_message("❌ Dyrektywa dla tej sesji nie istnieje.", ephemeral=True)
         return
-    if datetime.utcnow().isoformat() < dyrektywy[sesja]:
-        await interaction.response.send_message("⏳ Ta sesja nie została jeszcze ujawniona.", ephemeral=True)
-        return
 
     data = load_typy()
     member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
@@ -71,7 +68,7 @@ async def typy(interaction: discord.Interaction, sesja: str, typy: str):
 
     channel = discord.utils.get(bot.get_all_channels(), name="typy-2025")
     if channel:
-        await channel.send(f"🏁 Otrzymano typy od <@{interaction.user.id}> na `{sesja}`!")
+        await channel.send(f"🏎️ Otrzymano typy od <@{interaction.user.id}> na `{sesja}`!")
 
     await interaction.response.send_message(f"✅ Typy zapisane dla sesji `{sesja}`.", ephemeral=True)
 
@@ -95,13 +92,7 @@ async def ujawnij(interaction: discord.Interaction, sesja: str):
     save_dyrektywy(dyrektywy)
 
     await interaction.response.send_message(f"📢 Typy od uczestników na `{sesja}`:", ephemeral=False)
-
-    typy_data = load_typy()
-    if sesja in typy_data:
-        channel = discord.utils.get(bot.get_all_channels(), name="typy-2025")
-        if channel:
-            for autor, dane in typy_data[sesja].items():
-                await channel.send(f"📝 Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
+    await ujawnij_typy_dla_sesji(sesja)
 
 @bot.tree.command(name="najblizsza_sesja", description="Pokaż najbliższą zaplanowaną sesję.")
 async def najblizsza_sesja(interaction: discord.Interaction):
@@ -124,7 +115,7 @@ async def najblizsza_sesja(interaction: discord.Interaction):
     if najblizszy_czas is not None:
         czas_polish = najblizszy_czas.strftime("%d.%m.%Y %H:%M UTC")
         await interaction.response.send_message(
-            f"📅 Najbliższa sesja to **{najblizsza}** typy wysyłamy: **{czas_polish}**.", ephemeral=True
+            f"🗓 Najbliższa sesja to **{najblizsza}** typy wysyłamy: **{czas_polish}**.", ephemeral=True
         )
     else:
         await interaction.response.send_message("❌ Brak nadchodzących sesji.", ephemeral=True)
@@ -154,10 +145,22 @@ async def przypomnienia_task():
                     await kanal.send(f"⏰ Została **1 godzina** do terminu wysłania typów na **{sesja}**. Nie zapomnijcie!")
                     wyslane_przypomnienia["1h"].add(sesja)
 
+                elif teraz >= czas and sesja not in wyslane_przypomnienia["ujawnione"]:
+                    await kanal.send(f"📢 Czas na typy minął. Ujawniono zgłoszenia dla sesji **{sesja}**:")
+                    await ujawnij_typy_dla_sesji(sesja)
+                    wyslane_przypomnienia["ujawnione"].add(sesja)
+
             except Exception as e:
                 print(f"Błąd przy sesji {sesja}: {e}")
 
         await asyncio.sleep(300)
+
+async def ujawnij_typy_dla_sesji(sesja):
+    kanal = discord.utils.get(bot.get_all_channels(), name="typy-2025")
+    typy_data = load_typy()
+    if sesja in typy_data:
+        for autor, dane in typy_data[sesja].items():
+            await kanal.send(f"🖋 Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
 
 # Start
 keep_alive()
