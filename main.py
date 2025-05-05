@@ -48,11 +48,11 @@ async def on_ready():
     bot.loop.create_task(przypomnienia_task())
 
 @bot.tree.command(name="typy", description="Wyślij swoje typy na daną sesję.")
-@app_commands.describe(sesja="Np. MIAMI_KWALIFIKACJE", typy="Lista kierowców w kolejności")
+@app_commands.describe(sesja="Np. MIAMI - KWALIFIKACJE", typy="Lista kierowców w kolejności")
 async def typy(interaction: discord.Interaction, sesja: str, typy: str):
     dyrektywy = load_dyrektywy()
     teraz = datetime.utcnow().isoformat()
-    sesja = sesja.upper()
+    sesja = sesja.upper().replace("_", " - ")
 
     if sesja not in dyrektywy:
         await interaction.response.send_message("❌ Dyrektywa dla tej sesji nie istnieje.", ephemeral=True)
@@ -69,12 +69,12 @@ async def typy(interaction: discord.Interaction, sesja: str, typy: str):
 
     channel = discord.utils.get(bot.get_all_channels(), name="typy-2025")
     if channel:
-        await channel.send(f"🏎 Otrzymano typy od <@{interaction.user.id}> na `{sesja}`!")
+        await channel.send(f"🏁 Otrzymano typy od <@{interaction.user.id}> na `{sesja}`!")
 
     await interaction.response.send_message(f"✅ Typy zapisane dla sesji `{sesja}`.", ephemeral=True)
 
 @bot.tree.command(name="ujawnij", description="Ujawni typy dla wybranej sesji natychmiast.")
-@app_commands.describe(sesja="Np. MIAMI_KWALIFIKACJE")
+@app_commands.describe(sesja="Np. MIAMI - KWALIFIKACJE")
 async def ujawnij(interaction: discord.Interaction, sesja: str):
     if not interaction.guild:
         await interaction.response.send_message("❌ Komenda musi być użyta na serwerze.", ephemeral=True)
@@ -88,7 +88,7 @@ async def ujawnij(interaction: discord.Interaction, sesja: str):
 
     dyrektywy = load_dyrektywy()
     teraz = datetime.utcnow().isoformat()
-    sesja = sesja.upper()
+    sesja = sesja.upper().replace("_", " - ")
     dyrektywy[sesja] = teraz
     save_dyrektywy(dyrektywy)
 
@@ -99,7 +99,7 @@ async def ujawnij(interaction: discord.Interaction, sesja: str):
         channel = discord.utils.get(bot.get_all_channels(), name="typy-2025")
         if channel:
             for autor, dane in typy_data[sesja].items():
-                await channel.send(f"🕋 Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
+                await channel.send(f"🏎️ Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
 
 @bot.tree.command(name="najblizsza_sesja", description="Pokaż najbliższą zaplanowaną sesję.")
 async def najblizsza_sesja(interaction: discord.Interaction):
@@ -157,7 +157,7 @@ async def przypomnienia_task():
                     if sesja in typy_data:
                         await kanal.send(f"🔔 Czas na typy minął. Oto wszystkie przesłane typy na **{sesja}**:")
                         for autor, dane in typy_data[sesja].items():
-                            await kanal.send(f"🕋 Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
+                            await kanal.send(f"🏎️ Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
                     else:
                         await kanal.send(f"🔔 Czas na typy minął. Brak typów dla **{sesja}**.")
                     ujawnione_sesje.add(sesja)
