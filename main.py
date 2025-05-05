@@ -4,6 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from datetime import datetime, timedelta
+import pytz
 import json
 import os
 import asyncio
@@ -18,6 +19,7 @@ DYREKTYWY_FILE = "dyrektywy.json"
 
 wyslane_przypomnienia = {"48h": set(), "1h": set()}
 ujawnione_sesje = set()
+strefa_czasowa = pytz.timezone("Europe/Warsaw")
 
 def load_typy():
     if not os.path.exists(TYPY_FILE):
@@ -52,7 +54,7 @@ async def on_ready():
 async def typy(interaction: discord.Interaction, sesja: str, typy: str):
     dyrektywy = load_dyrektywy()
     teraz = datetime.utcnow().isoformat()
-    sesja = sesja.upper().replace("_", " - ")
+    sesja = sesja.upper()
 
     if sesja not in dyrektywy:
         await interaction.response.send_message("❌ Dyrektywa dla tej sesji nie istnieje.", ephemeral=True)
@@ -88,7 +90,7 @@ async def ujawnij(interaction: discord.Interaction, sesja: str):
 
     dyrektywy = load_dyrektywy()
     teraz = datetime.utcnow().isoformat()
-    sesja = sesja.upper().replace("_", " - ")
+    sesja = sesja.upper()
     dyrektywy[sesja] = teraz
     save_dyrektywy(dyrektywy)
 
@@ -99,7 +101,7 @@ async def ujawnij(interaction: discord.Interaction, sesja: str):
         channel = discord.utils.get(bot.get_all_channels(), name="typy-2025")
         if channel:
             for autor, dane in typy_data[sesja].items():
-                await channel.send(f"🏎️ Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
+                await channel.send(f"📬 Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
 
 @bot.tree.command(name="najblizsza_sesja", description="Pokaż najbliższą zaplanowaną sesję.")
 async def najblizsza_sesja(interaction: discord.Interaction):
@@ -120,9 +122,10 @@ async def najblizsza_sesja(interaction: discord.Interaction):
             continue
 
     if najblizszy_czas is not None:
-        czas_polish = najblizszy_czas.strftime("%d.%m.%Y %H:%M UTC")
+        czas_cest = pytz.utc.localize(najblizszy_czas).astimezone(strefa_czasowa)
+        czas_polish = czas_cest.strftime("%d.%m.%Y %H:%M CEST")
         await interaction.response.send_message(
-            f"🗓 Najbliższa sesja to **{najblizsza}** typy wysyłamy: **{czas_polish}**.", ephemeral=True
+            f"🗓 Najbliższa sesja to **{najblizsza}**. Typy wysyłamy do **{czas_polish}**.", ephemeral=True
         )
     else:
         await interaction.response.send_message("❌ Brak nadchodzących sesji.", ephemeral=True)
@@ -142,7 +145,8 @@ async def przypomnienia_task():
             try:
                 czas = datetime.fromisoformat(czas_str)
                 roznica = czas - teraz
-                czas_format = czas.strftime("%d.%m.%Y %H:%M UTC")
+                czas_cest = pytz.utc.localize(czas).astimezone(strefa_czasowa)
+                czas_format = czas_cest.strftime("%d.%m.%Y %H:%M CEST")
 
                 if timedelta(hours=47, minutes=55) < roznica < timedelta(hours=48, minutes=5) and sesja not in wyslane_przypomnienia["48h"]:
                     await kanal.send(f"📌 Typy na sesję **{sesja}** należy przesłać przed **{czas_format}**.")
@@ -157,7 +161,7 @@ async def przypomnienia_task():
                     if sesja in typy_data:
                         await kanal.send(f"🔔 Czas na typy minął. Oto wszystkie przesłane typy na **{sesja}**:")
                         for autor, dane in typy_data[sesja].items():
-                            await kanal.send(f"🏎️ Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
+                            await kanal.send(f"📬 Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
                     else:
                         await kanal.send(f"🔔 Czas na typy minął. Brak typów dla **{sesja}**.")
                     ujawnione_sesje.add(sesja)
