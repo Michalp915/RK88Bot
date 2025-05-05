@@ -48,11 +48,11 @@ async def on_ready():
     bot.loop.create_task(przypomnienia_task())
 
 @bot.tree.command(name="typy", description="Wyślij swoje typy na daną sesję.")
-@app_commands.describe(sesja="Np. MIAMI – KWALIFIKACJE", typy="Lista kierowców w kolejności")
+@app_commands.describe(sesja="Np. MIAMI_KWALIFIKACJE", typy="Lista kierowców w kolejności")
 async def typy(interaction: discord.Interaction, sesja: str, typy: str):
     dyrektywy = load_dyrektywy()
     teraz = datetime.utcnow().isoformat()
-    sesja = sesja.upper().replace("_", " – ")
+    sesja = sesja.upper()
 
     if sesja not in dyrektywy:
         await interaction.response.send_message("❌ Dyrektywa dla tej sesji nie istnieje.", ephemeral=True)
@@ -74,7 +74,7 @@ async def typy(interaction: discord.Interaction, sesja: str, typy: str):
     await interaction.response.send_message(f"✅ Typy zapisane dla sesji `{sesja}`.", ephemeral=True)
 
 @bot.tree.command(name="ujawnij", description="Ujawni typy dla wybranej sesji natychmiast.")
-@app_commands.describe(sesja="Np. MIAMI – KWALIFIKACJE")
+@app_commands.describe(sesja="Np. MIAMI_KWALIFIKACJE")
 async def ujawnij(interaction: discord.Interaction, sesja: str):
     if not interaction.guild:
         await interaction.response.send_message("❌ Komenda musi być użyta na serwerze.", ephemeral=True)
@@ -88,7 +88,7 @@ async def ujawnij(interaction: discord.Interaction, sesja: str):
 
     dyrektywy = load_dyrektywy()
     teraz = datetime.utcnow().isoformat()
-    sesja = sesja.upper().replace("_", " – ")
+    sesja = sesja.upper()
     dyrektywy[sesja] = teraz
     save_dyrektywy(dyrektywy)
 
@@ -155,11 +155,11 @@ async def przypomnienia_task():
                 elif teraz > czas and sesja not in ujawnione_sesje:
                     typy_data = load_typy()
                     if sesja in typy_data:
-                        await kanal.send(f"🔔 Czas na typy minął. Oto zgłoszenia na **{sesja}**:")
+                        await kanal.send(f"🔔 Czas na typy minął. Oto wszystkie przesłane typy na **{sesja}**:")
                         for autor, dane in typy_data[sesja].items():
                             await kanal.send(f"🕋 Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
                     else:
-                        await kanal.send(f"🔔 Czas na typy minął. Brak zgłoszeń dla **{sesja}**.")
+                        await kanal.send(f"🔔 Czas na typy minął. Brak typów dla **{sesja}**.")
                     ujawnione_sesje.add(sesja)
 
             except Exception as e:
