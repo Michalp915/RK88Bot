@@ -3,6 +3,7 @@ from keep_alive import keep_alive
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord.ui import Modal, TextInput
 from datetime import datetime, timedelta
 import pytz
 import json
@@ -43,37 +44,37 @@ def save_dyrektywy(data):
     with open(DYREKTYWY_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-@bot.event
-async def on_ready():
-    await bot.tree.sync()
-    print(f"✅ Zalogowano jako {bot.user}")
-    bot.loop.create_task(przypomnienia_task())
+class TypyModal(Modal, title="Wyślij swoje typy"):
+    sesja = TextInput(label="Nazwa sesji", placeholder="Np. MIAMI - WYŚCIG", required=True)
+    typy = TextInput(label="Typy (lista kierowców)", style=discord.TextStyle.paragraph, placeholder="Np. 1. Verstappen 2. Leclerc 3. Alonso...", required=True)
 
-@bot.tree.command(name="typy", description="Wyślij swoje typy na daną sesję.")
-@app_commands.describe(sesja="Np. MIAMI - KWALIFIKACJE", typy="Lista kierowców w kolejności")
-async def typy(interaction: discord.Interaction, sesja: str, typy: str):
-    dyrektywy = load_dyrektywy()
-    teraz = datetime.utcnow().isoformat()
-    sesja = sesja.upper()
+    async def on_submit(self, interaction: discord.Interaction):
+        dyrektywy = load_dyrektywy()
+        teraz = datetime.utcnow().isoformat()
+        sesja_nazwa = self.sesja.value.upper()
 
-    if sesja not in dyrektywy:
-        await interaction.response.send_message("❌ Dyrektywa dla tej sesji nie istnieje.", ephemeral=True)
-        return
+        if sesja_nazwa not in dyrektywy:
+            await interaction.response.send_message("❌ Dyrektywa dla tej sesji nie istnieje.", ephemeral=True)
+            return
 
-    data = load_typy()
-    member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
-    author = member.nick if member and member.nick else interaction.user.name
+        data = load_typy()
+        member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
+        author = member.nick if member and member.nick else interaction.user.name
 
-    if sesja not in data:
-        data[sesja] = {}
-    data[sesja][author] = {"czas": teraz, "typy": typy}
-    save_typy(data)
+        if sesja_nazwa not in data:
+            data[sesja_nazwa] = {}
+        data[sesja_nazwa][author] = {"czas": teraz, "typy": self.typy.value}
+        save_typy(data)
 
-    channel = discord.utils.get(bot.get_all_channels(), name="typy-2025")
-    if channel:
-        await channel.send(f"🏁 Otrzymano typy od <@{interaction.user.id}> na `{sesja}`!")
+        channel = discord.utils.get(bot.get_all_channels(), name="typy-2025")
+        if channel:
+            await channel.send(f"🏁 Otrzymano typy od <@{interaction.user.id}> na `{sesja_nazwa}`!")
 
-    await interaction.response.send_message(f"✅ Typy zapisane dla sesji `{sesja}`.", ephemeral=True)
+        await interaction.response.send_message(f"✅ Typy zapisane dla sesji `{sesja_nazwa}`.", ephemeral=True)
+
+@bot.tree.command(name="typy", description="Otwórz formularz do wysyłki typów")
+async def typy_cmd(interaction: discord.Interaction):
+    await interaction.response.send_modal(TypyModal())
 
 @bot.tree.command(name="ujawnij", description="Ujawni typy dla wybranej sesji natychmiast.")
 @app_commands.describe(sesja="Np. MIAMI - KWALIFIKACJE")
@@ -114,19 +115,16 @@ async def najblizsza_sesja(interaction: discord.Interaction):
     for sesja, czas_str in dyrektywy.items():
         try:
             czas = datetime.fromisoformat(czas_str)
-            if czas > teraz:
-                if najblizszy_czas is None or czas < najblizszy_czas:
-                    najblizsza = sesja
-                    najblizszy_czas = czas
+            if czas > teraz and (najblizszy_czas is None or czas < najblizszy_czas):
+                najblizsza = sesja
+                najblizszy_czas = czas
         except ValueError:
             continue
 
-    if najblizszy_czas is not None:
+    if najblizszy_czas:
         czas_cest = pytz.utc.localize(najblizszy_czas).astimezone(strefa_czasowa)
         czas_polish = czas_cest.strftime("%d.%m.%Y %H:%M CEST")
-        await interaction.response.send_message(
-            f"🗓 Najbliższa sesja to **{najblizsza}**. Typy wysyłamy do **{czas_polish}**.", ephemeral=True
-        )
+        await interaction.response.send_message(f"🗓 Najbliższa sesja to **{najblizsza}**. Typy wysyłamy do **{czas_polish}**.", ephemeral=True)
     else:
         await interaction.response.send_message("❌ Brak nadchodzących sesji.", ephemeral=True)
 
