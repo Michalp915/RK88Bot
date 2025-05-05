@@ -16,7 +16,7 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 TYPY_FILE = "typy.json"
 DYREKTYWY_FILE = "dyrektywy.json"
 
-wyslane_przypomnienia = {"48h": set(), "1h": set(), "ujawnione": set()}
+wyslane_przypomnienia = {"48h": set(), "1h": set()}
 
 def load_typy():
     if not os.path.exists(TYPY_FILE):
@@ -68,7 +68,7 @@ async def typy(interaction: discord.Interaction, sesja: str, typy: str):
 
     channel = discord.utils.get(bot.get_all_channels(), name="typy-2025")
     if channel:
-        await channel.send(f"🏎️ Otrzymano typy od <@{interaction.user.id}> na `{sesja}`!")
+        await channel.send(f"🏎 Otrzymano typy od <@{interaction.user.id}> na `{sesja}`!")
 
     await interaction.response.send_message(f"✅ Typy zapisane dla sesji `{sesja}`.", ephemeral=True)
 
@@ -91,8 +91,14 @@ async def ujawnij(interaction: discord.Interaction, sesja: str):
     dyrektywy[sesja] = teraz
     save_dyrektywy(dyrektywy)
 
-    await interaction.response.send_message(f"📢 Typy od uczestników na `{sesja}`:", ephemeral=False)
-    await ujawnij_typy_dla_sesji(sesja)
+    await interaction.response.send_message(f"📢 Czas na typy minął. Oto wszystkie przesłane typy na **{sesja}**:", ephemeral=False)
+
+    typy_data = load_typy()
+    if sesja in typy_data:
+        channel = discord.utils.get(bot.get_all_channels(), name="typy-2025")
+        if channel:
+            for autor, dane in typy_data[sesja].items():
+                await channel.send(f"🖋 Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
 
 @bot.tree.command(name="najblizsza_sesja", description="Pokaż najbliższą zaplanowaną sesję.")
 async def najblizsza_sesja(interaction: discord.Interaction):
@@ -145,22 +151,10 @@ async def przypomnienia_task():
                     await kanal.send(f"⏰ Została **1 godzina** do terminu wysłania typów na **{sesja}**. Nie zapomnijcie!")
                     wyslane_przypomnienia["1h"].add(sesja)
 
-                elif teraz >= czas and sesja not in wyslane_przypomnienia["ujawnione"]:
-                    await kanal.send(f"📢 Czas na typy minął. Ujawniono zgłoszenia dla sesji **{sesja}**:")
-                    await ujawnij_typy_dla_sesji(sesja)
-                    wyslane_przypomnienia["ujawnione"].add(sesja)
-
             except Exception as e:
                 print(f"Błąd przy sesji {sesja}: {e}")
 
         await asyncio.sleep(300)
-
-async def ujawnij_typy_dla_sesji(sesja):
-    kanal = discord.utils.get(bot.get_all_channels(), name="typy-2025")
-    typy_data = load_typy()
-    if sesja in typy_data:
-        for autor, dane in typy_data[sesja].items():
-            await kanal.send(f"🖋 Typy od **{autor}** na `{sesja}`:\n{dane['typy']}")
 
 # Start
 keep_alive()
